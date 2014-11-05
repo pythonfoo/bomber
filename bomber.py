@@ -10,8 +10,10 @@ import pygame
 import asyncio
 import time
 import msgpack
-from docopt import docopt
 import pygameui as ui
+import re
+import random
+from docopt import docopt
 
 
 class ClientStub:
@@ -120,15 +122,85 @@ class LoadingScene(ui.Scene):
         self.add_child(label)
 
 
-class Map(ui.View):
+def feedblock(line):
+    while line:
+        attr, block, line = line[0], line[1], line[2:]
+        yield attr, block
+
+
+class Wall:
+
+    hidden = False
+    color = (100, 100, 100)
+
+    def __init__(self, frame):
+        self.frame = frame
+
+
+class DestructableWall(Wall):
+
+    color = (200, 100, 100)
+
+
+class IndestructableWall(Wall):
     pass
+
+
+class Map(ui.View):
+
+    def __init__(self, frame):
+        super().__init__(frame)
+
+        with open("simple.map") as fh:
+            mapdata = fh.read()
+
+        def rand_wall(match):
+            if random.random() < 0.6:
+                return " W"
+            return match.group()
+
+        mapdata = re.sub(r" ( )", rand_wall, mapdata)
+        lines = mapdata.splitlines()
+
+        self.walls = []
+        self.items = []
+        self.players = []
+
+        for y, line in enumerate(lines):
+            for x, (attr, block) in enumerate(feedblock(line)):
+                frame = ui.Rect(x * 10, y * 10, 10, 10)
+                if block == "W":
+                    self.walls.append(DestructableWall(frame))
+                elif block == "M":
+                    self.walls.append(IndestructableWall(frame))
+
+    def draw(self):
+        if not super().draw():
+            return False
+        ui.render.fillrect(self.surface,
+            [(173, 222, 78), (153, 202, 58)],
+            ui.Rect(0, 0, self.frame.w, self.frame.h)
+        )
+
+        # draw walls
+        for wall in self.walls:
+            ui.render.fillrect(self.surface, wall.color, wall.frame)
+
+        # draw items
+        for item in self.items:
+            ui.render.fillrect(self.surface, item.color, item.frame)
+
+        # draw player
+        for player in self.players:
+            ui.render.fillrect(self.surface, player.color, player.frame)
+        return True
 
 
 class MapScene(ui.Scene):
 
     def __init__(self):
         super().__init__()
-        self.map = Map((500, 500))
+        self.map = Map(ui.Rect(10, 10, 500, 500))
         self.add_child(self.map)
 
 
@@ -145,6 +217,7 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     ui.init("bomber", (900, 700))
     ui.scene.push(LoadingScene())
+    ui.scene.insert(0, MapScene())
     # screen = pygame.display.set_mode((900, 700))
     if not arguments.get('--connect'):
         gameserver = Server()
