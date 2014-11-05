@@ -140,7 +140,7 @@ def handle_msg(msg):
 
 
 if __name__ == "__main__":
-    arguments = docopt(__doc__, version='helangor 0.8')
+    arguments = docopt(__doc__, version='bomber 0.1')
 
     loop = asyncio.get_event_loop()
     ui.init("bomber", (900, 700))
