@@ -11,6 +11,7 @@ import asyncio
 import time
 import msgpack
 from docopt import docopt
+import pygameui as ui
 
 
 class ClientStub:
@@ -97,19 +98,38 @@ class Server:
 @asyncio.coroutine
 def main_loop(loop):
     now = last = time.time()
+    time_per_frame = 1 / 30
 
     while True:
         # 30 frames per second, considering computation/drawing time
-        last, now = now, time.time()
-        time_per_frame = 1 / 30
         yield from asyncio.sleep(last + time_per_frame - now)
+        last, now = now, time.time()
+        dt = now - last
+        if ui.single_loop_run(dt):
+            return
 
-        for event in pygame.event.get():
-            if event.type == pygame.locals.QUIT:
-                return
 
-        # DRAWING
-        pygame.display.flip()
+class LoadingScene(ui.Scene):
+
+    def __init__(self):
+        super().__init__()
+
+        label = ui.label.Label(self.frame, "Loading ...")
+        label.text_color = (0, 250, 0)
+        # label.layout()
+        self.add_child(label)
+
+
+class Map(ui.View):
+    pass
+
+
+class MapScene(ui.Scene):
+
+    def __init__(self):
+        super().__init__()
+        self.map = Map((500, 500))
+        self.add_child(self.map)
 
 
 def handle_msg(msg):
@@ -123,8 +143,9 @@ if __name__ == "__main__":
     arguments = docopt(__doc__, version='helangor 0.8')
 
     loop = asyncio.get_event_loop()
-    pygame.init()
-    screen = pygame.display.set_mode((900, 700))
+    ui.init("bomber", (900, 700))
+    ui.scene.push(LoadingScene())
+    # screen = pygame.display.set_mode((900, 700))
     if not arguments.get('--connect'):
         gameserver = Server()
         asyncio.async(gameserver.run_server())
