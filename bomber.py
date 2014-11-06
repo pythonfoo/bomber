@@ -86,6 +86,7 @@ class Server:
                 pack = yield from reader.read(1024)
                 unpacker.feed(pack)
                 for msg in unpacker:
+                    print(repr(msg))
                     new_client.handle_msg(msg)
             except ConnectionResetError as e:
                 print('ERROR: {}'.format(e))
@@ -157,7 +158,7 @@ class IndestructableWall(Wall):
 
 class Player:
 
-    def __init__(self, position, client, name="Hans", color=None, password=""):
+    def __init__(self, position, client, name="Hans", color=None, password="", id=None):
         x, y = position
         # TODO use a real hash
         hashpassword = lambda x: x
@@ -184,11 +185,16 @@ class Player:
         self.explosion_radius = 1
         self.moving = 0
         self.direction = "w"        # North
+        self.id = id
         client.on_message.connect(self.handle_msg)
 
     def handle_msg(self, msg):
         if msg["type"] == "move":
             self.move(msg["direction"])
+        elif msg["type"] == "whoami":
+            self.client.inform("OK", [self.color, self.id, self._top, self._left])
+        elif msg["type"] == "whoami":
+            self.client.inform("OK", self.get_map())
 
     def move(self, direction):
         assert direction in "wasd"
@@ -213,7 +219,6 @@ class Player:
         self._left += left * distance
         self.frame.top = self._top
         self.frame.left = self._left
-        print("d{}, m{}, t{}, l{}, f{}".format(distance, self.moving, top, left, self.frame))
 
 
 class Map(ui.View):
@@ -264,7 +269,6 @@ class Map(ui.View):
     def key_down(self, key, code):
         if not self.players:
             return
-        print(code)
         if code.lower() == "w":
             self.players[0].move("w")
         elif code.lower() == "a":
@@ -285,12 +289,13 @@ class Map(ui.View):
             position=self.spawnpoints[position],
             client=client,
             color=position,
+            id=position
         )
         self.players.append(player)
-        return True
+        return position
 
     def player_unregister(self, position):
-        np = [p for p in self.players if p.position != position]
+        np = [p for p in self.players if p.id != position]
         if len(self.players) > len(np):
             self.players = np
             self.freespawnpoints.append(position)
@@ -349,7 +354,7 @@ if __name__ == "__main__":
         asyncio.async(gameserver.run_server())
 
 
-    map_scene.map.player_register(ClientStub(None, None))
+    # map_scene.map.player_register(ClientStub(None, None))
     ui.scene.pop()
     try:
         loop.run_until_complete(main_loop(loop))
