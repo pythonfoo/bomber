@@ -22,9 +22,13 @@ class ClientStub:
         self.reader = reader
         self.writer = writer
         self.peername = None
+        self.on_message = ui.callback.Signal()
 
     def inform(self, msg_type, args):
         self.writer.write(msgpack.packb((msg_type, args)))
+
+    def handle_msg(self, msg):
+        self.on_message(msg)
 
 
 class Server:
@@ -37,9 +41,10 @@ class Server:
     clients = {}
     server = None
 
-    def __init__(self, host='localhost', port=8001):
+    def __init__(self, host='*', port=8001, level=None):
         self.host = host
         self.port = port
+        self.level = level
         self.clients = {}
 
     @asyncio.coroutine
@@ -70,7 +75,9 @@ class Server:
     @asyncio.coroutine
     def client_connected(self, reader, writer):
         peername = writer.transport.get_extra_info('peername')
+        print("hallo {}".format(peername))
         new_client = ClientStub(reader, writer)
+        position = self.level.player_register(new_client)
         self.clients[peername] = new_client
         # self.send_to_client(peername, 'Welcome {}'.format(peername))
         unpacker = msgpack.Unpacker(encoding='utf-8')
@@ -79,10 +86,11 @@ class Server:
                 pack = yield from reader.read(1024)
                 unpacker.feed(pack)
                 for msg in unpacker:
-                    handle_msg(msg)
+                    new_client.handle_msg(msg)
             except ConnectionResetError as e:
                 print('ERROR: {}'.format(e))
                 del self.clients[peername]
+                self.level.player_unregister(position)
                 return
             except Exception as e:
                 error = 'ERROR: {}'.format(e)
@@ -90,6 +98,7 @@ class Server:
                 self.send_to_client(peername, error)
                 new_client.writer.write_eof()
                 del self.clients[peername]
+                self.level.player_unregister(position)
                 return
 
     def close(self):
@@ -107,7 +116,7 @@ def main_loop(loop):
         yield from asyncio.sleep(last + time_per_frame - now)
         last, now = now, time.time()
         dt = now - last
-        if ui.single_loop_run(dt):
+        if ui.single_loop_run(dt*1000):
             return
 
 
@@ -155,6 +164,8 @@ class Player:
 
         # TODO don't use 10 as a fixed value for map raster
         self.frame = ui.Rect(x * 10, y * 10, 10, 10)
+        self._top = float(self.frame.top)
+        self._left = float(self.frame.left)
         self.name = name
         self.client = client
         self.color = {
@@ -168,11 +179,41 @@ class Player:
             "8": (255, 255, 0),     # yellow
         }[color]
         self.password = hashpassword(password)
-        self.speed = 1.
+        self.speed = 10.
         self.bombamount = 0
         self.explosion_radius = 1
-        self.moving = False
-        self.direction = "W"        # North
+        self.moving = 0
+        self.direction = "w"        # North
+        client.on_message.connect(self.handle_msg)
+
+    def handle_msg(self, msg):
+        if msg["type"] == "move":
+            self.move(msg["direction"])
+
+    def move(self, direction):
+        assert direction in "wasd"
+        self.direction = direction
+        self.moving = 1.
+
+    def update(self, dt):
+        if not self.moving > 0:
+            return
+        time_to_move = min(dt, self.moving)
+        self.moving -= time_to_move
+        distance = time_to_move * self.speed
+
+        top, left = {
+            "w": (-1, 0),
+            "a": (0, -1),
+            "s": (1, 0),
+            "d": (0, 1),
+        }[self.direction]
+
+        self._top += top * distance
+        self._left += left * distance
+        self.frame.top = self._top
+        self.frame.left = self._left
+        print("d{}, m{}, t{}, l{}, f{}".format(distance, self.moving, top, left, self.frame))
 
 
 class Map(ui.View):
@@ -218,7 +259,22 @@ class Map(ui.View):
         self.on_player_join = ui.callback.Signal()
         self.on_player_leave = ui.callback.Signal()
 
-    def register_player(self, client):
+        # self.on_keydown.register(self.keydown)
+
+    def key_down(self, key, code):
+        if not self.players:
+            return
+        print(code)
+        if code.lower() == "w":
+            self.players[0].move("w")
+        elif code.lower() == "a":
+            self.players[0].move("a")
+        elif code.lower() == "s":
+            self.players[0].move("s")
+        elif code.lower() == "d":
+            self.players[0].move("d")
+
+    def player_register(self, client):
         try:
             position = self.freespawnpoints.pop()
         except StopIteration as e:
@@ -230,11 +286,14 @@ class Map(ui.View):
             client=client,
             color=position,
         )
-        self.player.append(player)
+        self.players.append(player)
         return True
 
     def player_unregister(self, position):
-        pass
+        np = [p for p in self.players if p.position != position]
+        if len(self.players) > len(np):
+            self.players = np
+            self.freespawnpoints.append(position)
 
     def draw(self):
         if not super().draw():
@@ -257,6 +316,10 @@ class Map(ui.View):
             ui.render.fillrect(self.surface, player.color, player.frame)
         return True
 
+    def update(self, dt):
+        for player in self.players:
+            player.update(dt)
+
 
 class MapScene(ui.Scene):
 
@@ -270,7 +333,6 @@ def handle_msg(msg):
     user = msg["user"]
     pos = msg["x"], msg["y"]
     color = msg["color"]
-    pygame.draw.line(screen, color, pos, pos)
 
 
 if __name__ == "__main__":
@@ -279,12 +341,16 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     ui.init("bomber", (900, 700))
     ui.scene.push(LoadingScene())
-    ui.scene.insert(0, MapScene())
+    map_scene = MapScene()
+    ui.scene.insert(0, map_scene)
     # screen = pygame.display.set_mode((900, 700))
     if not arguments.get('--connect'):
-        gameserver = Server()
+        gameserver = Server(level=map_scene.map)
         asyncio.async(gameserver.run_server())
 
+
+    map_scene.map.player_register(ClientStub(None, None))
+    ui.scene.pop()
     try:
         loop.run_until_complete(main_loop(loop))
     finally:
