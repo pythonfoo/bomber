@@ -146,6 +146,35 @@ class IndestructableWall(Wall):
     pass
 
 
+class Player:
+
+    def __init__(self, position, client, name="Hans", color=None, password=""):
+        x, y = position
+        # TODO use a real hash
+        hashpassword = lambda x: x
+
+        # TODO don't use 10 as a fixed value for map raster
+        self.frame = ui.Rect(x * 10, y * 10, 10, 10)
+        self.name = name
+        self.client = client
+        self.color = {
+            "1": (0x80, 0, 0),      # red
+            "2": (0, 0, 255),       # blue
+            "3": (255, 255, 255),   # white
+            "4": (0xFF, 0x66, 0),   # orange
+            "5": (0, 0x80, 0),      # green
+            "6": (0x55, 0x22, 0),   # brown
+            "7": (0x80, 0, 0x80),   # purple
+            "8": (255, 255, 0),     # yellow
+        }[color]
+        self.password = hashpassword(password)
+        self.speed = 1.
+        self.bombamount = 0
+        self.explosion_radius = 1
+        self.moving = False
+        self.direction = "W"        # North
+
+
 class Map(ui.View):
 
     def __init__(self, frame):
@@ -162,17 +191,50 @@ class Map(ui.View):
         mapdata = re.sub(r" ( )", rand_wall, mapdata)
         lines = mapdata.splitlines()
 
+        spawnpoints = []
+        freespawnpoints = []
+
         self.walls = []
         self.items = []
         self.players = []
+        self.spawnpoints = {}
 
         for y, line in enumerate(lines):
             for x, (attr, block) in enumerate(feedblock(line)):
+                # TODO don't use 10 as a fixed value for map raster
                 frame = ui.Rect(x * 10, y * 10, 10, 10)
                 if block == "W":
                     self.walls.append(DestructableWall(frame))
                 elif block == "M":
                     self.walls.append(IndestructableWall(frame))
+                elif block == "S":
+                    # this is a spawn point
+                    # attr is the start position
+                    self.spawnpoints[attr] = (x, y)
+                    freespawnpoints.append(attr)
+
+        self.freespawnpoints = sorted(freespawnpoints, reverse=True)
+
+        self.on_player_join = ui.callback.Signal()
+        self.on_player_leave = ui.callback.Signal()
+
+    def register_player(self, client):
+        try:
+            position = self.freespawnpoints.pop()
+        except StopIteration as e:
+            return False
+
+        # TODO create player View/ convert client to player
+        player = Player(
+            position=self.spawnpoints[position],
+            client=client,
+            color=position,
+        )
+        self.player.append(player)
+        return True
+
+    def player_unregister(self, position):
+        pass
 
     def draw(self):
         if not super().draw():
