@@ -86,7 +86,6 @@ class Server:
                 pack = yield from reader.read(1024)
                 unpacker.feed(pack)
                 for msg in unpacker:
-                    print(repr(msg))
                     new_client.handle_msg(msg)
             except ConnectionResetError as e:
                 print('ERROR: {}'.format(e))
@@ -110,7 +109,7 @@ class Server:
 @asyncio.coroutine
 def main_loop(loop):
     now = last = time.time()
-    time_per_frame = 1 / 30
+    time_per_frame = 1 / 5
 
     while True:
         # 30 frames per second, considering computation/drawing time
@@ -158,7 +157,7 @@ class IndestructableWall(Wall):
 
 class Player:
 
-    def __init__(self, position, client, name="Hans", color=None, password="", id=None):
+    def __init__(self, position, client, name="Hans", color=None, password="", id=None, map=None):
         x, y = position
         # TODO use a real hash
         hashpassword = lambda x: x
@@ -186,6 +185,7 @@ class Player:
         self.moving = 0
         self.direction = "w"        # North
         self.id = id
+        self.map = map
         client.on_message.connect(self.handle_msg)
 
     def handle_msg(self, msg):
@@ -194,7 +194,7 @@ class Player:
         elif msg["type"] == "whoami":
             self.client.inform("OK", [self.color, self.id, self._top, self._left])
         elif msg["type"] == "whoami":
-            self.client.inform("OK", self.get_map())
+            self.client.inform("OK", self.get_map(),)
 
     def move(self, direction):
         assert direction in "wasd"
@@ -217,8 +217,24 @@ class Player:
 
         self._top += top * distance
         self._left += left * distance
+
+        if self._top < 0.:
+            self._top = 0
+            self.moving = 0
+        if self._left < 0.:
+            self._left = 0
+            self.moving = 0
+        if self._top > 490.:
+            self._top = 490
+            self.moving = 0
+        if self._left > 490.:
+            self._left = 490
+            self.moving = 0
         self.frame.top = self._top
         self.frame.left = self._left
+        if not self.map.frame.contains(self.frame):
+            self.moving = 0
+
 
 
 class Map(ui.View):
@@ -289,7 +305,8 @@ class Map(ui.View):
             position=self.spawnpoints[position],
             client=client,
             color=position,
-            id=position
+            id=position,
+            map=self
         )
         self.players.append(player)
         return position
