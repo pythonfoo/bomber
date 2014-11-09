@@ -14,6 +14,7 @@ from bomber.scenes import LoadingScene, MapScene
 from bomber.network import Server
 from bomber.engine import Map
 
+
 @asyncio.coroutine
 def main_loop(loop):
     now = last = time.time()
@@ -28,22 +29,29 @@ def main_loop(loop):
             return
 
 
-if __name__ == "__main__":
-    arguments = docopt(__doc__, version='bomber 0.1')
-
+def main(arguments):
+    # init async and pygame
     loop = asyncio.get_event_loop()
     ui.init("bomber", (900, 700))
+
+    # show loading scene
     ui.scene.push(LoadingScene())
     map_scene = MapScene(Map(ui.Rect(10, 10, 500, 500)))
     ui.scene.insert(0, map_scene)
-    # screen = pygame.display.set_mode((900, 700))
-    if not arguments.get('--connect'):
-        gameserver = Server(level=map_scene.map)
-        asyncio.async(gameserver.run_server())
+
+    gameserver = Server(level=map_scene.map)
+    asyncio.async(gameserver.run_server())
 
     # map_scene.map.player_register(ClientStub(None, None))
+
+    # show game ui
     ui.scene.pop()
     try:
         loop.run_until_complete(main_loop(loop))
     finally:
         loop.close()
+
+
+if __name__ == "__main__":
+    arguments = docopt(__doc__, version='bomber 0.1')
+    main(arguments)
