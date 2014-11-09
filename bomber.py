@@ -193,7 +193,7 @@ class Player:
             self.move(msg["direction"])
         elif msg["type"] == "whoami":
             self.client.inform("OK", [self.color, self.id, self._top, self._left])
-        elif msg["type"] == "whoami":
+        elif msg["type"] == "map":
             self.client.inform("OK", self.get_map(),)
 
     def move(self, direction):
