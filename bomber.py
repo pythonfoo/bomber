@@ -6,10 +6,8 @@ Usage:
 
     bomber.py
 """
-import pygame
 import asyncio
 import time
-import msgpack
 import pygameui as ui
 import re
 import random
