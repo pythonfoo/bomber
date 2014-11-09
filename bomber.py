@@ -14,6 +14,7 @@ import pygameui as ui
 import re
 import random
 from docopt import docopt
+from bomber.scenes import LoadingScene, MapScene
 
 
 class ClientStub:
@@ -118,17 +119,6 @@ def main_loop(loop):
         dt = now - last
         if ui.single_loop_run(dt*1000):
             return
-
-
-class LoadingScene(ui.Scene):
-
-    def __init__(self):
-        super().__init__()
-
-        label = ui.label.Label(self.frame, "Loading ...")
-        label.text_color = (0, 250, 0)
-        # label.layout()
-        self.add_child(label)
 
 
 def feedblock(line):
@@ -343,14 +333,6 @@ class Map(ui.View):
             player.update(dt)
 
 
-class MapScene(ui.Scene):
-
-    def __init__(self):
-        super().__init__()
-        self.map = Map(ui.Rect(10, 10, 500, 500))
-        self.add_child(self.map)
-
-
 def handle_msg(msg):
     user = msg["user"]
     pos = msg["x"], msg["y"]
@@ -363,7 +345,7 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     ui.init("bomber", (900, 700))
     ui.scene.push(LoadingScene())
-    map_scene = MapScene()
+    map_scene = MapScene(Map(ui.Rect(10, 10, 500, 500)))
     ui.scene.insert(0, map_scene)
     # screen = pygame.display.set_mode((900, 700))
     if not arguments.get('--connect'):
