@@ -42,7 +42,8 @@ def main(arguments):
     gameserver = Server(level=map_scene.map)
     asyncio.async(gameserver.run_server())
 
-    # map_scene.map.player_register(ClientStub(None, None))
+    from bomber.network import ClientStub
+    map_scene.map.player_register(ClientStub(None, None))
 
     # show game ui
     ui.scene.pop()
