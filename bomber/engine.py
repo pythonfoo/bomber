@@ -30,10 +30,12 @@ class Wall:
 class DestructableWall(Wall):
 
     color = (200, 100, 100)
+    destructable = True
 
 
 class IndestructableWall(Wall):
-    pass
+
+    destructable = False
 
 
 class Player:
@@ -124,7 +126,8 @@ class Player:
         )
 
         # TODO it is the jurisdiction of Map to tell the Player about colliding walls
-        collisions = [wall for wall in self.map.walls if collision_frame.colliderect(wall.frame)]
+        collisions = [wall for wall in self.map.walls
+            if wall.destructable is False and collision_frame.colliderect(wall.frame)]
         if collisions:
             self.moving = 0
             # TODO send info to client
