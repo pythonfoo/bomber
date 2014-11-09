@@ -18,13 +18,74 @@ def first(iterator):
         return elem
 
 
-class Wall:
+class MapObject:
 
     hidden = False
     color = (100, 100, 100)
 
     def __init__(self, frame):
         self.frame = frame
+
+
+class Bomb(MapObject):
+
+    def __init__(self, player, fuse_time, position):
+
+        x, y = position
+        frame = ui.Rect(
+            x * TILE_WIDTH,
+            y * TILE_HEIGHT,
+            TILE_WIDTH,
+            TILE_HEIGHT
+        )
+        super().__init__(frame)
+        self.player = player
+        self.fuse_time = fuse_time
+        self.burn_time = 1.
+        self._state = "ticking"
+        self.color = (10, 10, 10)
+        self.explosion_radius = player.explosion_radius
+        self.hidden = False
+
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, value):
+        state_transitions = {
+            "ticking": ["exploding", "burning"],
+            "exploding": ["burning"],
+            "burning": [],
+        }
+
+        assert value in state_transitions[self._state]
+
+        if self._state != value:
+            self._state = value
+            self.on_new_state(value)
+
+    def on_new_state(self, state):
+        if state == "burning" or state == "exploding":
+            self.color = (255, 255, 230)
+
+    def update(self, dt):
+        if self.state == "ticking":
+            time_to_tick = min(dt, self.fuse_time)
+            dt -= time_to_tick
+            self.fuse_time -= time_to_tick
+            if self.fuse_time <= 0:
+                self.state = "exploding"
+
+        if self.state == "exploding":
+            time_to_burn = min(dt, self.burn_time)
+            self.burn_time -= time_to_burn
+            if self.burn_time <= 0:
+                self.hidden = True
+
+
+class Wall(MapObject):
+    pass
 
 
 class DestructableWall(Wall):
@@ -35,6 +96,7 @@ class DestructableWall(Wall):
 
 class IndestructableWall(Wall):
 
+    color = (100, 100, 100)
     destructable = False
 
 
@@ -62,13 +124,21 @@ class Player:
         }[color]
         self.password = hashpassword(password)
         self.speed = 10.
-        self.bombamount = 0
+        self.bombamount = 1
         self.explosion_radius = 1
         self.moving = 0
         self.direction = "w"        # North
         self.id = id
         self.map = map
         client.on_message.connect(self.handle_msg)
+
+    @property
+    def position_int(self):
+        return (round(self.frame.left / TILE_WIDTH), round(self.frame.top / TILE_HEIGHT))
+
+    @property
+    def position_int(self):
+        return (round(self.frame.left / TILE_WIDTH, 1), round(self.frame.top / TILE_HEIGHT, 1))
 
     def handle_msg(self, msg):
         if msg["type"] == "move":
@@ -83,13 +153,15 @@ class Player:
         self.direction = direction
         self.moving = 1.
 
+    def bomb(self):
+        self.map.plant_bomb(self)
+
     def update(self, dt):
         if not self.moving > 0:
             return
         time_to_move = min(dt, self.moving)
         self.moving -= time_to_move
         distance = time_to_move * self.speed
-        print ("d:{}, d:{}, m:{}".format(self.direction, distance, self.moving))
 
         top, left = {
             "w": (-1, 0),
@@ -117,7 +189,6 @@ class Player:
 
         # collision detection with walls
         frame = ui.Rect(_left, _top, TILE_WIDTH, TILE_HEIGHT)   # possible new position
-        print(frame)
         collision_frame = ui.Rect(
             min(self.frame.left, frame.left),
             min(self.frame.top, frame.top),
@@ -214,6 +285,8 @@ class Map(ui.View):
             self.players[0].move("s")
         elif code.lower() == "d":
             self.players[0].move("d")
+        elif code.lower() == "b":
+            self.players[0].bomb()
 
     def player_register(self, client):
         try:
@@ -236,6 +309,16 @@ class Map(ui.View):
         if len(self.players) > len(np):
             self.players = np
             self.freespawnpoints.append(position)
+
+    def plant_bomb(self, player):
+        bombs = [b for b in self.items if isinstance(b, Bomb) and b.player is player]
+        if len(bombs) >= player.bombamount:
+            return False
+        self.items.append(Bomb(
+            player=player,
+            fuse_time=5,
+            position=player.position_int,
+        ))
 
     def draw(self):
         if not super().draw():
@@ -262,4 +345,6 @@ class Map(ui.View):
         for player in self.players:
             player.update(dt)
 
-
+        for item in self.items:
+            item.update(dt)
+        self.items = [i for i in self.items if not i.hidden]
