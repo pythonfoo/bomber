@@ -18,7 +18,7 @@ from bomber.engine import Map
 @asyncio.coroutine
 def main_loop(loop):
     now = last = time.time()
-    time_per_frame = 1 / 5
+    time_per_frame = 1 / 30
 
     while True:
         # 30 frames per second, considering computation/drawing time
