@@ -77,6 +77,7 @@ class Player:
         self.moving = 1.
 
     def update(self, dt):
+        # print (self.moving)
         if not self.moving > 0:
             return
         time_to_move = min(dt, self.moving)
@@ -90,6 +91,7 @@ class Player:
             "d": (0, 1),
         }[self.direction]
 
+        # print("dt:{}, t:{}, l:{}, d:{}, m:{}".format(dt, self._top, self._left, distance, self.moving))
         self._top += top * distance
         self._left += left * distance
 
@@ -105,10 +107,11 @@ class Player:
         if self._left > 480.:
             self._left = 480
             self.moving = 0
+        # print("dt:{}, t:{}, l:{}, d:{}, m:{}".format(dt, self._top, self._left, distance, self.moving))
         self.frame.top = self._top
         self.frame.left = self._left
-        if not self.map.frame.contains(self.frame):
-            self.moving = 0
+        # if not self.map.frame.contains(self.frame):
+        #     self.moving = 0
 
 
 
