@@ -3,6 +3,9 @@ import random
 import pygameui as ui
 
 
+TILE_WIDTH = 10
+TILE_HEIGHT = 10
+
 def feedblock(line):
     while line:
         attr, block, line = line[0], line[1], line[2:]
@@ -35,7 +38,7 @@ class Player:
         hashpassword = lambda x: x
 
         # TODO don't use 10 as a fixed value for map raster
-        self.frame = ui.Rect(x * 10, y * 10, 10, 10)
+        self.frame = ui.Rect(x * TILE_WIDTH, y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT)
         self._top = float(self.frame.top)
         self._left = float(self.frame.left)
         self.name = name
@@ -96,11 +99,11 @@ class Player:
         if self._left < 0.:
             self._left = 0
             self.moving = 0
-        if self._top > 490.:
-            self._top = 490
+        if self._top > 480.:
+            self._top = 480
             self.moving = 0
-        if self._left > 490.:
-            self._left = 490
+        if self._left > 480.:
+            self._left = 480
             self.moving = 0
         self.frame.top = self._top
         self.frame.left = self._left

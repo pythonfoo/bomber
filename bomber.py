@@ -36,7 +36,7 @@ def main(arguments):
 
     # show loading scene
     ui.scene.push(LoadingScene())
-    map_scene = MapScene(Map(ui.Rect(10, 10, 500, 500)))
+    map_scene = MapScene(Map(ui.Rect(10, 10, 490, 490)))
     ui.scene.insert(0, map_scene)
 
     gameserver = Server(level=map_scene.map)
