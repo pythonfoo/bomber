@@ -6,10 +6,16 @@ import pygameui as ui
 TILE_WIDTH = 10
 TILE_HEIGHT = 10
 
+
 def feedblock(line):
     while line:
         attr, block, line = line[0], line[1], line[2:]
         yield attr, block
+
+
+def first(iterator):
+    for elem in iterator:
+        return elem
 
 
 class Wall:
@@ -37,7 +43,6 @@ class Player:
         # TODO use a real hash
         hashpassword = lambda x: x
 
-        # TODO don't use 10 as a fixed value for map raster
         self.frame = ui.Rect(x * TILE_WIDTH, y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT)
         self._top = float(self.frame.top)
         self._left = float(self.frame.left)
@@ -77,12 +82,12 @@ class Player:
         self.moving = 1.
 
     def update(self, dt):
-        # print (self.moving)
         if not self.moving > 0:
             return
         time_to_move = min(dt, self.moving)
         self.moving -= time_to_move
         distance = time_to_move * self.speed
+        print ("d:{}, d:{}, m:{}".format(self.direction, distance, self.moving))
 
         top, left = {
             "w": (-1, 0),
@@ -91,28 +96,63 @@ class Player:
             "d": (0, 1),
         }[self.direction]
 
-        # print("dt:{}, t:{}, l:{}, d:{}, m:{}".format(dt, self._top, self._left, distance, self.moving))
-        self._top += top * distance
-        self._left += left * distance
+        _top = self._top + (top * distance)
+        _left = self._left + (left * distance)
 
-        if self._top < 0.:
-            self._top = 0
+        # collision detection with map border
+        if _top < 0:
+            _top = 0
             self.moving = 0
-        if self._left < 0.:
-            self._left = 0
+        if _left < 0:
+            _left = 0
             self.moving = 0
-        if self._top > 480.:
-            self._top = 480
+        if _top > (self.map.frame.height - TILE_HEIGHT):
+            _top = (self.map.frame.height - TILE_HEIGHT)
             self.moving = 0
-        if self._left > 480.:
-            self._left = 480
+        if _left > (self.map.frame.width - TILE_WIDTH):
+            _left = (self.map.frame.width - TILE_WIDTH)
             self.moving = 0
-        # print("dt:{}, t:{}, l:{}, d:{}, m:{}".format(dt, self._top, self._left, distance, self.moving))
-        self.frame.top = self._top
-        self.frame.left = self._left
-        # if not self.map.frame.contains(self.frame):
-        #     self.moving = 0
 
+        # collision detection with walls
+        frame = ui.Rect(_left, _top, TILE_WIDTH, TILE_HEIGHT)   # possible new position
+        print(frame)
+        collision_frame = ui.Rect(
+            min(self.frame.left, frame.left),
+            min(self.frame.top, frame.top),
+            abs(self.frame.left - frame.left) + TILE_WIDTH,
+            abs(self.frame.top - frame.top) + TILE_HEIGHT,
+        )
+
+        # TODO it is the jurisdiction of Map to tell the Player about colliding walls
+        collisions = [wall for wall in self.map.walls if collision_frame.colliderect(wall.frame)]
+        if collisions:
+            self.moving = 0
+            # TODO send info to client
+
+            if self.direction == "w":
+                # get the lowest box
+                collider = first(sorted(collisions, key=lambda x: x.frame.top, reverse=True))
+                frame.top = collider.frame.bottom
+                _top = frame.top
+            elif self.direction == "a":
+                # get the box farest right
+                collider = first(sorted(collisions, key=lambda x: x.frame.left, reverse=True))
+                frame.left = collider.frame.right
+                _left = frame.left
+            elif self.direction == "s":
+                # get the highest box
+                collider = first(sorted(collisions, key=lambda x: x.frame.top))
+                frame.bottom = collider.frame.top
+                _top = frame.top
+            elif self.direction == "d":
+                # get the box farest left
+                collider = first(sorted(collisions, key=lambda x: x.frame.left))
+                frame.right = collider.frame.left
+                _left = frame.left
+
+        self.frame = frame
+        self._top = _top
+        self._left = _left
 
 
 class Map(ui.View):
@@ -178,7 +218,6 @@ class Map(ui.View):
         except StopIteration as e:
             return False
 
-        # TODO create player View/ convert client to player
         player = Player(
             position=self.spawnpoints[position],
             client=client,
