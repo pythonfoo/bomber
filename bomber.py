@@ -1,6 +1,6 @@
 """ bomber.py
 
-a little server where you can send commands to paint a specific pixel.
+a bomberman clone server.
 
 Usage:
 
