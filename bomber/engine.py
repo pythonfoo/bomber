@@ -1,6 +1,7 @@
 import re
 import random
 import pygameui as ui
+from itertools import chain
 
 
 TILE_WIDTH = 10
@@ -25,6 +26,14 @@ class MapObject:
 
     def __init__(self, frame):
         self.frame = frame
+
+    @property
+    def position_int(self):
+        return (round(self.frame.left / TILE_WIDTH), round(self.frame.top / TILE_HEIGHT))
+
+    @property
+    def position_float(self):
+        return (round(self.frame.left / TILE_WIDTH, 1), round(self.frame.top / TILE_HEIGHT, 1))
 
 
 class Bomb(MapObject):
@@ -100,7 +109,21 @@ class IndestructableWall(Wall):
     destructable = False
 
 
+COLLIDING_OBJECTS = (IndestructableWall, Bomb)
+
+
 class Player:
+
+    # TODO change orientation,
+    # ui.Rect uses left, top
+    # this uses top, left
+
+    directions = {
+        "w": (-1, 0),
+        "a": (0, -1),
+        "s": (1, 0),
+        "d": (0, 1),
+    }
 
     def __init__(self, position, client, name="Hans", color=None, password="", id=None, map=None):
         x, y = position
@@ -137,8 +160,34 @@ class Player:
         return (round(self.frame.left / TILE_WIDTH), round(self.frame.top / TILE_HEIGHT))
 
     @property
+    def next_position_int(self):
+        top, left = self.directions[self.direction]
+        x, y = self.position_int
+        return x + left, y + top
+
+    @property
     def position_float(self):
         return (round(self.frame.left / TILE_WIDTH, 1), round(self.frame.top / TILE_HEIGHT, 1))
+
+    @property
+    def delta_position_distance(self):
+        x, y = self.position_int
+        x *= TILE_WIDTH
+        y *= TILE_HEIGHT
+        return abs(x - self._left) + abs(y - self._top)
+
+    def get_direction_to_int_position(self):
+        xi, yi = self.position_int
+        xf, yf = self.position_float
+
+        if xf > xi:
+            return "a"
+        elif xf < xi:
+            return "d"
+        elif yf > yi:
+            return "w"
+        elif yf < yi:
+            return "s"
 
     def handle_msg(self, msg):
         if msg["type"] == "move":
@@ -165,12 +214,7 @@ class Player:
         distance = min(dt * self.speed, self.moving)
         self.moving -= distance
 
-        top, left = {
-            "w": (-1, 0),
-            "a": (0, -1),
-            "s": (1, 0),
-            "d": (0, 1),
-        }[self.direction]
+        top, left = self.directions[self.direction]
 
         _top = self._top + (top * distance)
         _left = self._left + (left * distance)
@@ -199,36 +243,76 @@ class Player:
         )
 
         # TODO it is the jurisdiction of Map to tell the Player about colliding walls
-        collisions = [wall for wall in self.map.walls
-            if wall.destructable is False and collision_frame.colliderect(wall.frame)]
+        # Now it is even more complicated to move this to the Map object
+        # because it cannot inlcude objects that are placed on
+
+        collisions = [wall for wall in chain(self.map.walls, self.map.items)
+            if isinstance(wall, COLLIDING_OBJECTS) and collision_frame.colliderect(wall.frame)
+                and not self.frame.colliderect(wall.frame)]
         if collisions:
-            self.moving = 0
             # TODO send info to client
 
+            collision = True
             if self.direction == "w":
                 # get the lowest box
-                collider = first(sorted(collisions, key=lambda x: x.frame.top, reverse=True))
-                frame.top = collider.frame.bottom
-                _top = frame.top
+                collisions = sorted(collisions, key=lambda x: x.frame.top, reverse=True)
+                collider = [c for c in collisions if c.position_int == self.next_position_int]
+                if collider:
+                    frame.top = collisions[0].frame.bottom
+                    _top = frame.top
+                else:
+                    # no valid collision
+                    collision = False
+
             elif self.direction == "a":
                 # get the box farest right
-                collider = first(sorted(collisions, key=lambda x: x.frame.left, reverse=True))
-                frame.left = collider.frame.right
-                _left = frame.left
+                collisions = sorted(collisions, key=lambda x: x.frame.left, reverse=True)
+                collider = [c for c in collisions if c.position_int == self.next_position_int]
+                if collider:
+                    frame.left = collisions[0].frame.right
+                    _left = frame.left
+                else:
+                    # no valid collision
+                    collision = False
+
             elif self.direction == "s":
                 # get the highest box
-                collider = first(sorted(collisions, key=lambda x: x.frame.top))
-                frame.bottom = collider.frame.top
-                _top = frame.top
+                collisions = sorted(collisions, key=lambda x: x.frame.top)
+                collider = [c for c in collisions if c.position_int == self.next_position_int]
+                if collider:
+                    frame.bottom = collisions[0].frame.top
+                    _top = frame.top
+                else:
+                    # no valid collision
+                    collision = False
+
             elif self.direction == "d":
                 # get the box farest left
-                collider = first(sorted(collisions, key=lambda x: x.frame.left))
-                frame.right = collider.frame.left
-                _left = frame.left
+                collisions = sorted(collisions, key=lambda x: x.frame.left)
+                collider = [c for c in collisions if c.position_int == self.next_position_int]
+                if collider:
+                    frame.right = collisions[0].frame.left
+                    _left = frame.left
+                else:
+                    # no valid collision
+                    collision = False
 
-        self.frame = frame
-        self._top = _top
-        self._left = _left
+            if collision:
+                self.moving = 0
+            else:
+                offset_distance = min(self.delta_position_distance, distance)
+                distance -= offset_distance
+                new_direction = self.get_direction_to_int_position()
+                if new_direction:
+                    top_offset, left_offset = self.directions[new_direction]
+                    _top = self._top + (top_offset * offset_distance)
+                    _left = self._left + (left_offset * offset_distance)
+                    if distance > 0:
+                        _top += top * distance
+                        _left += left * distance
+
+        self.frame.top = self._top = _top
+        self.frame.left = self._left = _left
 
 
 class Map(ui.View):
