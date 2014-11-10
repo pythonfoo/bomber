@@ -195,7 +195,7 @@ class Player:
         elif msg["type"] == "whoami":
             self.client.inform("OK", [self.color, self.id, self._top, self._left])
         elif msg["type"] == "map":
-            self.client.inform("OK", self.get_map(),)
+            self.client.inform("OK", self.map._map,)
         elif msg["type"] == "bomb":
             self.bomb()
 
@@ -326,7 +326,7 @@ class Map(ui.View):
         def rand_wall(match):
             if random.random() < 0.6:
                 return " W"
-            return match.group()
+            return " g"
 
         mapdata = re.sub(r" ( )", rand_wall, mapdata)
         lines = mapdata.splitlines()
@@ -339,10 +339,12 @@ class Map(ui.View):
         self.players = []
         self.spawnpoints = {}
 
+        self._map = []
         for y, line in enumerate(lines):
+            line = []
             for x, (attr, block) in enumerate(feedblock(line)):
-                # TODO don't use 10 as a fixed value for map raster
-                frame = ui.Rect(x * 10, y * 10, 10, 10)
+                line.append(block)
+                frame = ui.Rect(x * TILE_WIDTH, y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT)
                 if block == "W":
                     self.walls.append(DestructableWall(frame))
                 elif block == "M":
@@ -352,6 +354,7 @@ class Map(ui.View):
                     # attr is the start position
                     self.spawnpoints[attr] = (x, y)
                     freespawnpoints.append(attr)
+            self._map.append(line)
 
         self.freespawnpoints = sorted(freespawnpoints, reverse=True)
 
