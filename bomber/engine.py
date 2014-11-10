@@ -137,7 +137,7 @@ class Player:
         return (round(self.frame.left / TILE_WIDTH), round(self.frame.top / TILE_HEIGHT))
 
     @property
-    def position_int(self):
+    def position_float(self):
         return (round(self.frame.left / TILE_WIDTH, 1), round(self.frame.top / TILE_HEIGHT, 1))
 
     def handle_msg(self, msg):
