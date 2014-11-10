@@ -126,7 +126,7 @@ class Player:
         self.speed = 10.
         self.bombamount = 1
         self.explosion_radius = 1
-        self.moving = 0
+        self.moving = 0             # unit pixel
         self.direction = "w"        # North
         self.id = id
         self.map = map
@@ -147,11 +147,13 @@ class Player:
             self.client.inform("OK", [self.color, self.id, self._top, self._left])
         elif msg["type"] == "map":
             self.client.inform("OK", self.get_map(),)
+        elif msg["type"] == "bomb":
+            self.bomb()
 
-    def move(self, direction):
+    def move(self, direction, distance=10.):
         assert direction in "wasd"
         self.direction = direction
-        self.moving = 1.
+        self.moving = distance
 
     def bomb(self):
         self.map.plant_bomb(self)
@@ -159,9 +161,9 @@ class Player:
     def update(self, dt):
         if not self.moving > 0:
             return
-        time_to_move = min(dt, self.moving)
-        self.moving -= time_to_move
-        distance = time_to_move * self.speed
+
+        distance = min(dt * self.speed, self.moving)
+        self.moving -= distance
 
         top, left = {
             "w": (-1, 0),
@@ -278,13 +280,13 @@ class Map(ui.View):
         if not self.players:
             return
         if code.lower() == "w":
-            self.players[0].move("w")
+            self.players[0].move("w", 1)
         elif code.lower() == "a":
-            self.players[0].move("a")
+            self.players[0].move("a", 1)
         elif code.lower() == "s":
-            self.players[0].move("s")
+            self.players[0].move("s", 1)
         elif code.lower() == "d":
-            self.players[0].move("d")
+            self.players[0].move("d", 1)
         elif code.lower() == "b":
             self.players[0].bomb()
 
