@@ -122,6 +122,8 @@ class Bomb(MapObject):
             self.hidden = True
             for fire_trail in self.fire_trails:
                 fire_trail.hidden = True
+            for wall in self.destoyed_walls:
+                wall.hidden = True
 
     def deploy_fire_trails(self):
         for direction in "wasd":
@@ -130,8 +132,10 @@ class Bomb(MapObject):
             for i in range(self.explosion_radius + 1):
                 _y = y + i * top
                 _x = x + i * left
+                if _x < 0 or _y < 0:
+                    break
                 tile = self.player.map._map[_y][_x]
-                if isinstance(tile, Wall):
+                if isinstance(tile, Wall) and not tile.hidden:
                     if tile.destructable:
                         self.destoyed_walls.append(tile)
                     break
