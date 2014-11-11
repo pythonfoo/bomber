@@ -97,6 +97,11 @@ class Wall(MapObject):
     pass
 
 
+class GroundBlock(Wall):
+
+    color = (0, 200, 0)
+
+
 class DestructableWall(Wall):
 
     color = (200, 100, 100)
@@ -339,17 +344,17 @@ class Map(ui.View):
         self.spawnpoints = {}
 
         self._map = []
-        for y, line in enumerate(lines):
+        for y, mapline in enumerate(lines):
             line = []
-            for x, (attr, block) in enumerate(feedblock(line)):
+            for x, (attr, block) in enumerate(feedblock(mapline)):
                 frame = ui.Rect(x * TILE_WIDTH, y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT)
                 item = GroundBlock(frame)
                 if block == "W":
                     item = DestructableWall(frame)
-                    self.walls.append(DestructableWall(frame))
+                    self.walls.append(item)
                 elif block == "M":
                     item = IndestructableWall(frame)
-                    self.walls.append(IndestructableWall(frame))
+                    self.walls.append(item)
                 elif block == "S":
                     # this is a spawn point
                     # attr is the start position
