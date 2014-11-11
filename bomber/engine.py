@@ -7,6 +7,17 @@ from itertools import chain
 TILE_WIDTH = 10
 TILE_HEIGHT = 10
 
+# TODO change orientation,
+# ui.Rect uses left, top
+# this uses top, left
+
+directions = {
+    "w": (-1, 0),
+    "a": (0, -1),
+    "s": (1, 0),
+    "d": (0, 1),
+}
+
 
 def feedblock(line):
     while line:
@@ -35,6 +46,26 @@ class MapObject:
     def position_float(self):
         return (round(self.frame.left / TILE_WIDTH, 1), round(self.frame.top / TILE_HEIGHT, 1))
 
+    def update(self, dt):
+        pass
+
+
+class FireTrail(MapObject):
+
+    def __init__(self, bomb, start, end):
+        x, y = start
+        _x, _y = end
+
+        frame = ui.Rect(
+            min(x, _x) * TILE_WIDTH,
+            min(y, _y) * TILE_HEIGHT,
+            (abs(x - _x) + 1) * TILE_WIDTH,
+            (abs(y - _y) + 1) * TILE_HEIGHT
+        )
+        super().__init__(frame)
+        self.color = bomb.color
+        self.bomb = bomb
+
 
 class Bomb(MapObject):
 
@@ -50,11 +81,15 @@ class Bomb(MapObject):
         super().__init__(frame)
         self.player = player
         self.fuse_time = fuse_time
-        self.burn_time = 1.
+        self.burn_time = 1.5
+        self.exploding_time = 0.2
+        self.update_timer = fuse_time
         self._state = "ticking"
         self.color = (10, 10, 10)
         self.explosion_radius = player.explosion_radius
         self.hidden = False
+        self.destoyed_walls = []
+        self.fire_trails = []
 
     @property
     def state(self):
@@ -65,7 +100,8 @@ class Bomb(MapObject):
         state_transitions = {
             "ticking": ["exploding", "burning"],
             "exploding": ["burning"],
-            "burning": [],
+            "burning": ["hiding"],
+            "hiding": []
         }
 
         assert value in state_transitions[self._state]
@@ -75,31 +111,54 @@ class Bomb(MapObject):
             self.on_new_state(value)
 
     def on_new_state(self, state):
-        if state == "burning" or state == "exploding":
+        if state == "exploding":
             self.color = (255, 255, 230)
+            self.update_timer = self.exploding_time
+            self.deploy_fire_trails()
+        elif state == "burning":
+            self.color = (255, 55, 10)
+            self.update_timer = self.burn_time
+        elif state == "hiding":
+            self.hidden = True
+            for fire_trail in self.fire_trails:
+                fire_trail.hidden = True
+
+    def deploy_fire_trails(self):
+        for direction in "wasd":
+            top, left = directions[direction]
+            x, y = self.position_int
+            for i in range(self.explosion_radius + 1):
+                _y = y + i * top
+                _x = x + i * left
+                tile = self.player.map._map[_y][_x]
+                if isinstance(tile, Wall):
+                    if tile.destructable:
+                        self.destoyed_walls.append(tile)
+                    break
+            fire_trail = FireTrail(self, (x, y), (_x, _y))
+            self.player.map.items.append(fire_trail)
+            self.fire_trails.append(fire_trail)
 
     def update(self, dt):
-        if self.state == "ticking":
-            time_to_tick = min(dt, self.fuse_time)
-            dt -= time_to_tick
-            self.fuse_time -= time_to_tick
-            if self.fuse_time <= 0:
+        time_to_tick = min(dt, self.update_timer)
+        dt -= time_to_tick
+        self.update_timer -= time_to_tick
+        if self.update_timer <= 0:
+            if self.state == "ticking":
                 self.state = "exploding"
+            elif self.state == "exploding":
+                self.state = "burning"
+            elif self.state == "burning":
+                self.state = "hiding"
 
-        if self.state == "exploding":
-            time_to_burn = min(dt, self.burn_time)
-            self.burn_time -= time_to_burn
-            if self.burn_time <= 0:
-                self.hidden = True
+
+class GroundBlock(MapObject):
+
+    color = (0, 200, 0)
 
 
 class Wall(MapObject):
     pass
-
-
-class GroundBlock(Wall):
-
-    color = (0, 200, 0)
 
 
 class DestructableWall(Wall):
@@ -118,17 +177,6 @@ COLLIDING_OBJECTS = (IndestructableWall, Bomb)
 
 
 class Player:
-
-    # TODO change orientation,
-    # ui.Rect uses left, top
-    # this uses top, left
-
-    directions = {
-        "w": (-1, 0),
-        "a": (0, -1),
-        "s": (1, 0),
-        "d": (0, 1),
-    }
 
     def __init__(self, position, client, name="Hans", color=None, password="", id=None, map=None):
         x, y = position
@@ -166,7 +214,7 @@ class Player:
 
     @property
     def next_position_int(self):
-        top, left = self.directions[self.direction]
+        top, left = directions[self.direction]
         x, y = self.position_int
         return x + left, y + top
 
@@ -219,7 +267,7 @@ class Player:
         distance = min(dt * self.speed, self.moving)
         self.moving -= distance
 
-        top, left = self.directions[self.direction]
+        top, left = directions[self.direction]
 
         _top = self._top + (top * distance)
         _left = self._left + (left * distance)
@@ -308,7 +356,7 @@ class Player:
                 distance -= offset_distance
                 new_direction = self.get_direction_to_int_position()
                 if new_direction:
-                    top_offset, left_offset = self.directions[new_direction]
+                    top_offset, left_offset = directions[new_direction]
                     _top = self._top + (top_offset * offset_distance)
                     _left = self._left + (left_offset * offset_distance)
                     if distance > 0:
@@ -443,4 +491,6 @@ class Map(ui.View):
 
         for item in self.items:
             item.update(dt)
+
         self.items = [i for i in self.items if not i.hidden]
+        self.walls = [w for w in self.walls if not w.hidden]
