@@ -459,7 +459,7 @@ class Map(ui.View):
             self.freespawnpoints.append(position)
 
     def plant_bomb(self, player):
-        bombs = [b for b in self.items if isinstance(b, Bomb) and b.player is player]
+        bombs = [b for b in self.items if isinstance(b, Bomb) and b.player is player and b.state == "ticking"]
         if len(bombs) >= player.bombamount:
             return False
         self.items.append(Bomb(
