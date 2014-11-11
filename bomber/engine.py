@@ -250,8 +250,6 @@ class Player:
             if isinstance(wall, COLLIDING_OBJECTS) and collision_frame.colliderect(wall.frame)
                 and not self.frame.colliderect(wall.frame)]
         if collisions:
-            # TODO send info to client
-
             collision = True
             if self.direction == "w":
                 # get the lowest box
@@ -299,6 +297,7 @@ class Player:
 
             if collision:
                 self.moving = 0
+                # TODO send info to client
             else:
                 offset_distance = min(self.delta_position_distance, distance)
                 distance -= offset_distance
@@ -343,17 +342,20 @@ class Map(ui.View):
         for y, line in enumerate(lines):
             line = []
             for x, (attr, block) in enumerate(feedblock(line)):
-                line.append(block)
                 frame = ui.Rect(x * TILE_WIDTH, y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT)
+                item = GroundBlock(frame)
                 if block == "W":
+                    item = DestructableWall(frame)
                     self.walls.append(DestructableWall(frame))
                 elif block == "M":
+                    item = IndestructableWall(frame)
                     self.walls.append(IndestructableWall(frame))
                 elif block == "S":
                     # this is a spawn point
                     # attr is the start position
                     self.spawnpoints[attr] = (x, y)
                     freespawnpoints.append(attr)
+                line.append(item)
             self._map.append(line)
 
         self.freespawnpoints = sorted(freespawnpoints, reverse=True)
