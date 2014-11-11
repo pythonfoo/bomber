@@ -203,9 +203,9 @@ class Player:
             "8": (255, 255, 0),     # yellow
         }[color]
         self.password = hashpassword(password)
-        self.speed = 10.
+        self.speed = 100.
         self.bombamount = 1
-        self.explosion_radius = 1
+        self.explosion_radius = 10
         self.moving = 0             # unit pixel
         self.direction = "w"        # North
         self.id = id
@@ -426,13 +426,13 @@ class Map(ui.View):
         if not self.players:
             return
         if code.lower() == "w":
-            self.players[0].move("w", 1)
+            self.players[0].move("w", 2.5)
         elif code.lower() == "a":
-            self.players[0].move("a", 1)
+            self.players[0].move("a", 2.5)
         elif code.lower() == "s":
-            self.players[0].move("s", 1)
+            self.players[0].move("s", 2.5)
         elif code.lower() == "d":
-            self.players[0].move("d", 1)
+            self.players[0].move("d", 2.5)
         elif code.lower() == "b":
             self.players[0].bomb()
 
