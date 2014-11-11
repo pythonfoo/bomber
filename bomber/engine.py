@@ -177,7 +177,7 @@ class IndestructableWall(Wall):
     destructable = False
 
 
-COLLIDING_OBJECTS = (IndestructableWall, Bomb)
+COLLIDING_OBJECTS = (IndestructableWall, DestructableWall, Bomb)
 
 
 class Player:
