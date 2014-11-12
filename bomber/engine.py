@@ -204,7 +204,7 @@ class Player:
         }[color]
         self.password = hashpassword(password)
         self.speed = 100.
-        self.bombamount = 1
+        self.bombamount = 10
         self.explosion_radius = 10
         self.moving = 0             # unit pixel
         self.direction = "w"        # North
