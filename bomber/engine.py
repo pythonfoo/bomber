@@ -7,15 +7,11 @@ import asyncio
 TILE_WIDTH = 10
 TILE_HEIGHT = 10
 
-# TODO change orientation,
-# ui.Rect uses left, top
-# this uses top, left
-
 directions = {
-    "w": (-1, 0),
-    "a": (0, -1),
-    "s": (1, 0),
-    "d": (0, 1),
+    "w": (0, -1),
+    "a": (-1, 0),
+    "s": (0, 1),
+    "d": (1, 0),
 }
 
 
@@ -128,11 +124,11 @@ class Bomb(MapObject):
 
     def deploy_fire_trails(self):
         for direction in "wasd":
-            top, left = directions[direction]
+            left, top = directions[direction]
             x, y = self.position_int
             for i in range(self.explosion_radius + 1):
-                _y = y + i * top
                 _x = x + i * left
+                _y = y + i * top
                 if _x < 0 or _y < 0:
                     break
                 tile = self.player.map._map[_y][_x]
@@ -233,7 +229,7 @@ class Player:
 
     @property
     def next_position_int(self):
-        top, left = directions[self.direction]
+        left, top = directions[self.direction]
         x, y = self.position_int
         return x + left, y + top
 
@@ -286,7 +282,7 @@ class Player:
         distance = min(dt * self.speed, self.moving)
         self.moving -= distance
 
-        top, left = directions[self.direction]
+        left, top = directions[self.direction]
 
         _top = self._top + (top * distance)
         _left = self._left + (left * distance)
@@ -375,7 +371,7 @@ class Player:
                 distance -= offset_distance
                 new_direction = self.get_direction_to_int_position()
                 if new_direction:
-                    top_offset, left_offset = directions[new_direction]
+                    left_offset, top_offset = directions[new_direction]
                     _top = self._top + (top_offset * offset_distance)
                     _left = self._left + (left_offset * offset_distance)
                     if distance > 0:
