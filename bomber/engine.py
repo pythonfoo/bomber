@@ -2,7 +2,7 @@ import re
 import random
 import pygameui as ui
 from itertools import chain
-
+import asyncio
 
 TILE_WIDTH = 10
 TILE_HEIGHT = 10
@@ -83,6 +83,7 @@ class Bomb(MapObject):
         self.fuse_time = fuse_time
         self.burn_time = 1.5
         self.exploding_time = 0.2
+        self.ignite_time = 0.1
         self.update_timer = fuse_time
         self._state = "ticking"
         self.color = (10, 10, 10)
@@ -143,7 +144,21 @@ class Bomb(MapObject):
             self.player.map.items.append(fire_trail)
             self.fire_trails.append(fire_trail)
 
+    def ignite(self):
+        if self.state == "ticking":
+            self.state = "exploding"
+
     def update(self, dt):
+        loop = asyncio.get_event_loop()
+
+        if self.state in ("exploding", "burning"):
+            for bomb in self.player.map.items:
+                if not isinstance(bomb, Bomb) or bomb.state != "ticking":
+                    continue
+                for fire_trail in self.fire_trails:
+                    if fire_trail.frame.colliderect(bomb.frame):
+                        loop.call_later(self.ignite_time, lambda x: x.ignite(), bomb)
+
         time_to_tick = min(dt, self.update_timer)
         dt -= time_to_tick
         self.update_timer -= time_to_tick
