@@ -216,7 +216,7 @@ class Player:
         self.name = name
         self.client = client
         self.color = {
-            "1": (0x80, 0, 0),      # red
+            "1": (255, 0, 0),       # red
             "2": (0, 0, 255),       # blue
             "3": (255, 255, 255),   # white
             "4": (0xFF, 0x66, 0),   # orange
