@@ -473,6 +473,7 @@ class Map(ui.View):
         except StopIteration as e:
             return False
 
+        self.player_unregister(position)
         player = Player(
             position=self.spawnpoints[position],
             client=client,
