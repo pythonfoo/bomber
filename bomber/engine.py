@@ -29,6 +29,7 @@ def first(iterator):
 
 class MapObject:
 
+    char = "Q"
     hidden = False
     color = (100, 100, 100)
 
@@ -45,6 +46,10 @@ class MapObject:
 
     def update(self, dt):
         pass
+
+    def hide(self):
+        self.hidden = True
+        self.char = self.char.lower()
 
 
 class FireTrail(MapObject):
@@ -173,6 +178,7 @@ class Bomb(MapObject):
 
 class GroundBlock(MapObject):
 
+    char = "g"
     color = (0, 200, 0)
 
 
@@ -182,12 +188,14 @@ class Wall(MapObject):
 
 class DestructableWall(Wall):
 
+    char = "W"
     color = (200, 100, 100)
     destructable = True
 
 
 class IndestructableWall(Wall):
 
+    char = "M"
     color = (100, 100, 100)
     destructable = False
 
@@ -273,7 +281,8 @@ class Player:
         elif msg["type"] == "whoami":
             self.client.inform("OK", self.whoami_data)
         elif msg["type"] == "map":
-            self.client.inform("OK", self.map._map,)
+            self.client.inform("OK", "\n".join(
+                "".join(e.char for e in line) for line in self.map._map),)
         elif msg["type"] == "bomb":
             self.bomb()
 
