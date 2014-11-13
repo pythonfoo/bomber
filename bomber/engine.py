@@ -132,11 +132,14 @@ class Bomb(MapObject):
                 _y = y + i * top
                 if _x < 0 or _y < 0:
                     break
-                tile = self.player.map._map[_y][_x]
-                if isinstance(tile, Wall) and not tile.hidden:
-                    if tile.destructable:
-                        self.destoyed_walls.append(tile)
-                    break
+                try:
+                    tile = self.player.map._map[_y][_x]
+                    if isinstance(tile, Wall) and not tile.hidden:
+                        if tile.destructable:
+                            self.destoyed_walls.append(tile)
+                        break
+                except IndexError:
+                    pass
             fire_trail = FireTrail(self, (x, y), (_x, _y))
             self.player.map.items.append(fire_trail)
             self.fire_trails.append(fire_trail)
@@ -224,6 +227,8 @@ class Player:
         self.map = map
         client.on_message.connect(self.handle_msg)
 
+        self.client.inform("OK", self.whoami_data)
+
     @property
     def position_int(self):
         return (round(self.frame.left / TILE_WIDTH), round(self.frame.top / TILE_HEIGHT))
@@ -245,6 +250,10 @@ class Player:
         y *= TILE_HEIGHT
         return abs(x - self._left) + abs(y - self._top)
 
+    @property
+    def whoami_data(self):
+        return [self.color, self.id, self._top, self._left]
+
     def get_direction_to_int_position(self):
         xi, yi = self.position_int
         xf, yf = self.position_float
@@ -262,7 +271,7 @@ class Player:
         if msg["type"] == "move":
             self.move(msg["direction"])
         elif msg["type"] == "whoami":
-            self.client.inform("OK", [self.color, self.id, self._top, self._left])
+            self.client.inform("OK", self.whoami_data)
         elif msg["type"] == "map":
             self.client.inform("OK", self.map._map,)
         elif msg["type"] == "bomb":
@@ -406,6 +415,7 @@ class Map(ui.View):
         self.items = []
         self.players = []
         self.spawnpoints = {}
+        self.users = {}
 
         self._map = []
         for y, mapline in enumerate(lines):
@@ -444,9 +454,13 @@ class Map(ui.View):
         elif code.lower() == "b":
             self.players[0].bomb()
 
-    def player_register(self, client):
+    def player_register(self, client, username):
         try:
-            position = self.freespawnpoints.pop()
+            if username in self.users:
+                position = self.users[username]
+            else:
+                position = self.freespawnpoints.pop()
+                self.users[username] = position
         except StopIteration as e:
             return False
 
@@ -464,7 +478,7 @@ class Map(ui.View):
         np = [p for p in self.players if p.id != position]
         if len(self.players) > len(np):
             self.players = np
-            self.freespawnpoints.append(position)
+            # self.freespawnpoints.append(position)
 
     def plant_bomb(self, player):
         bombs = [b for b in self.items if isinstance(b, Bomb) and b.player is player and b.state == "ticking"]

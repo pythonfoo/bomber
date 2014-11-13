@@ -5,17 +5,29 @@ import pygameui as ui
 
 class ClientStub:
 
-    def __init__(self, reader, writer):
+    def __init__(self, reader, writer, level):
         self.reader = reader
         self.writer = writer
         self.peername = None
         self.on_message = ui.callback.Signal()
+        self.state = "pending"
+        self.level = level
 
     def inform(self, msg_type, args):
         self.writer.write(msgpack.packb((msg_type, args)))
 
     def handle_msg(self, msg):
+        if self.state == "pending" and msg["type"] == "connect":
+            self.position = self.level.player_register(self, msg["username"])
+            self.state = "connected"
+
         self.on_message(msg)
+
+    def bye(self):
+        try:
+            self.level.player_unregister(self.level)
+        except:
+            pass
 
 
 class Server:
@@ -63,8 +75,8 @@ class Server:
     def client_connected(self, reader, writer):
         peername = writer.transport.get_extra_info('peername')
         print("hallo {}".format(peername))
-        new_client = ClientStub(reader, writer)
-        position = self.level.player_register(new_client)
+        new_client = ClientStub(reader, writer, self.level)
+        # position = self.level.player_register(new_client)
         self.clients[peername] = new_client
         # self.send_to_client(peername, 'Welcome {}'.format(peername))
         unpacker = msgpack.Unpacker(encoding='utf-8')
@@ -76,16 +88,18 @@ class Server:
                     new_client.handle_msg(msg)
             except ConnectionResetError as e:
                 print('ERROR: {}'.format(e))
+                slef.clients[peername].bye()
                 del self.clients[peername]
-                self.level.player_unregister(position)
+                # self.level.player_unregister(position)
                 return
             except Exception as e:
                 error = 'ERROR: {}'.format(e)
                 print(error)
                 self.send_to_client(peername, error)
                 new_client.writer.write_eof()
+                slef.clients[peername].bye()
                 del self.clients[peername]
-                self.level.player_unregister(position)
+                # self.level.player_unregister(position)
                 return
 
     def close(self):
