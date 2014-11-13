@@ -8,6 +8,7 @@ TILE_WIDTH = 10
 TILE_HEIGHT = 10
 
 directions = {
+# direction: (left, top)
     "w": (0, -1),
     "a": (-1, 0),
     "s": (0, 1),
@@ -436,14 +437,10 @@ class Map(ui.View):
     def key_down(self, key, code):
         if not self.players:
             return
-        if code.lower() == "w":
-            self.players[0].move("w", 2.5)
-        elif code.lower() == "a":
-            self.players[0].move("a", 2.5)
-        elif code.lower() == "s":
-            self.players[0].move("s", 2.5)
-        elif code.lower() == "d":
-            self.players[0].move("d", 2.5)
+
+        key_code = code.lower()
+        if key_code in ["w", "a", "s", "d"]:
+            self.players[0].move(key_code, 2.5)
         elif code.lower() == "b":
             self.players[0].bomb()
 
