@@ -122,11 +122,11 @@ class Bomb(MapObject):
             self.color = (255, 55, 10)
             self.update_timer = self.burn_time
         elif state == "hiding":
-            self.hidden = True
+            self.hide()
             for fire_trail in self.fire_trails:
-                fire_trail.hidden = True
+                fire_trail.hide()
             for wall in self.destoyed_walls:
-                wall.hidden = True
+                wall.hide()
 
     def deploy_fire_trails(self):
         for direction in "wasd":
@@ -278,6 +278,7 @@ class Player:
     def handle_msg(self, msg):
         if msg["type"] == "move":
             distance = msg.get("distance", 1) * 10
+            assert isinstance(distance, (int, float))
             self.move(msg["direction"], distance)
         elif msg["type"] == "whoami":
             self.client.inform("OK", self.whoami_data)
@@ -451,6 +452,7 @@ class Map(ui.View):
 
         self.on_player_join = ui.callback.Signal()
         self.on_player_leave = ui.callback.Signal()
+        self.on_update_player = ui.callback.Signal()
 
         # self.on_keydown.register(self.keydown)
 
@@ -480,9 +482,11 @@ class Map(ui.View):
             client=client,
             color=position,
             id=position,
-            map=self
+            map=self,
+            name=username,
         )
         self.players.append(player)
+        self.on_update_player(player)
         return position
 
     def player_unregister(self, position):
