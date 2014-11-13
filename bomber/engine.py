@@ -277,7 +277,8 @@ class Player:
 
     def handle_msg(self, msg):
         if msg["type"] == "move":
-            self.move(msg["direction"])
+            distance = msg.get("distance", 1) * 10
+            self.move(msg["direction"], distance)
         elif msg["type"] == "whoami":
             self.client.inform("OK", self.whoami_data)
         elif msg["type"] == "map":
