@@ -88,7 +88,7 @@ class Server:
                     new_client.handle_msg(msg)
             except ConnectionResetError as e:
                 print('ERROR: {}'.format(e))
-                slef.clients[peername].bye()
+                self.clients[peername].bye()
                 del self.clients[peername]
                 # self.level.player_unregister(position)
                 return
@@ -97,7 +97,7 @@ class Server:
                 print(error)
                 self.send_to_client(peername, error)
                 new_client.writer.write_eof()
-                slef.clients[peername].bye()
+                self.clients[peername].bye()
                 del self.clients[peername]
                 # self.level.player_unregister(position)
                 return
