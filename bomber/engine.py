@@ -276,24 +276,34 @@ class Player:
             return "s"
 
     def handle_msg(self, msg):
-        if msg["type"] == "move":
-            distance = msg.get("distance", 1) * 10
-            assert isinstance(distance, (int, float))
-            self.move(msg["direction"], distance)
-        elif msg["type"] == "whoami":
-            self.client.inform("OK", self.whoami_data)
-        elif msg["type"] == "map":
-            self.client.inform("OK", "\n".join(
-                "".join(e.char for e in line) for line in self.map._map),)
-        elif msg["type"] == "bomb":
-            self.bomb()
+        msg_type = msg.pop("type")
+        try:
+            handler = getattr(self, "do_{}".format(msg_type))
+        except AttributeError:
+            self.client.inform("ERR",
+                "The function ({}) you are calling is not available".format(msg_type))
+        ret = handler(**msg)
+        if ret:
+            if isinstance(ret, tuple) and len(ret) == 2:
+                self.client.inform(* ret)
+        else:
+            self.client.inform("ACK", ret)
 
-    def move(self, direction, distance=10.):
+    def do_whoami(self, **kwargs):
+        return ("OK", self.whoami_data)
+
+    def do_map(self, **kwargs):
+        return("OK", "\n".join(
+            "".join(e.char for e in line) for line in self.map._map),)
+
+    def do_move(self, direction, distance=1., **kwargs):
         assert direction in "wasd"
-        self.direction = direction
-        self.moving = distance
+        assert isinstance(distance, (int, float))
 
-    def bomb(self):
+        self.direction = direction
+        self.moving = distance * 10  # TODO, don't use constant
+
+    def do_bomb(self, **kwargs):
         self.map.plant_bomb(self)
 
     def update(self, dt):
@@ -462,9 +472,9 @@ class Map(ui.View):
 
         key_code = code.lower()
         if key_code in ["w", "a", "s", "d"]:
-            self.players[0].move(key_code, 2.5)
+            self.players[0].do_move(key_code, 2.5)
         elif code.lower() == "b":
-            self.players[0].bomb()
+            self.players[0].do_bomb()
 
     def player_register(self, client, username):
         try:
