@@ -308,6 +308,11 @@ class Player:
     def do_bomb(self, **kwargs):
         self.map.plant_bomb(self, fuse_time=kwargs.get("fuse_time", 5))
 
+    def do_what_bombs(self, **kwargs):
+        return ("WHAT_BOMBS", [
+            (b.position_int, b.update_timer, b.state,) for b in self.map.items if isinstance(b, Bomb)
+        ])
+
     def update(self, dt):
         if not self.moving > 0:
             return
