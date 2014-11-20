@@ -158,10 +158,15 @@ class Bomb(MapObject):
         loop = asyncio.get_event_loop()
 
         if self.state in ("exploding", "burning"):
-            for bomb in self.player.map.items:
-                if not isinstance(bomb, Bomb) or bomb.state != "ticking":
-                    continue
-                for fire_trail in self.fire_trails:
+            for fire_trail in self.fire_trails:
+                for player in self.player.map.players:
+                    if not player.alive:
+                        continue
+                    if fire_trail.frame.colliderect(player.frame):
+                        player.die()
+                for bomb in self.player.map.items:
+                    if not isinstance(bomb, Bomb) or bomb.state != "ticking":
+                        continue
                     if fire_trail.frame.colliderect(bomb.frame):
                         loop.call_later(self.ignite_time, lambda x: x.ignite(), bomb)
 
@@ -208,18 +213,17 @@ class Player:
 
     def __init__(self, position, client, name="Hans", color=None, password="", id=None, map=None):
         x, y = position
+        self.__x = x
+        self.__y = y
+        self.resurrect()
         # TODO use a real hash
         hashpassword = lambda x: x
-
-        self.frame = ui.Rect(x * TILE_WIDTH, y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT)
-        self._top = float(self.frame.top)
-        self._left = float(self.frame.left)
         self.name = name
         self.client = client
         self.color = {
             "1": (255, 0, 0),       # red
             "2": (0, 0, 255),       # blue
-            "3": (255, 255, 255),   # white
+            "3": (0, 0, 0),         # white
             "4": (0xFF, 0x66, 0),   # orange
             "5": (0, 0x80, 0),      # green
             "6": (0x55, 0x22, 0),   # brown
@@ -235,6 +239,8 @@ class Player:
         self.id = id
         self.map = map
         self.points = 0
+        self.alive = True
+        self.hidden = False
         client.on_message.connect(self.handle_msg)
 
         self.client.inform("OK", self.whoami_data)
@@ -277,7 +283,28 @@ class Player:
         elif yf < yi:
             return "s"
 
+    def die(self, hard=False):
+        print("die {}, tonight you dine in hell".format(self.name))
+        loop = asyncio.get_event_loop()
+
+        self.alive = False
+        self.hidden = True
+        if not hard:
+            loop.call_later(5, self.resurrect)
+        self.points -= 10
+
+    def resurrect(self):
+        self.alive = True
+        self.hidden = False
+        self.frame = ui.Rect(self.__x * TILE_WIDTH, self.__y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT)
+        self._top = float(self.frame.top)
+        self._left = float(self.frame.left)
+
     def handle_msg(self, msg):
+        if not self.alive:
+            self.client.inform("ERR",
+                "you are dead")
+            return
         msg_type = msg.pop("type")
         try:
             handler = getattr(self, "do_{}".format(msg_type))
@@ -314,7 +341,7 @@ class Player:
         ])
 
     def update(self, dt):
-        if not self.moving > 0:
+        if not self.moving > 0 or not self.alive:
             return
 
         distance = min(dt * self.speed, self.moving)
@@ -547,6 +574,8 @@ class Map(ui.View):
 
         # draw player
         for player in self.players:
+            if player.hidden:
+                continue
             ui.render.fillrect(self.surface, player.color, player.frame)
         return True
 
