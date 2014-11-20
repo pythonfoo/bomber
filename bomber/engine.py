@@ -497,15 +497,22 @@ class Map(ui.View):
             map=self,
             name=username,
         )
+        if old_player:
+            player.points = old_player.points
         self.players.append(player)
         self.on_update_player(player)
         return position
 
     def player_unregister(self, position):
+        old_player = None
+        for old_player in self.players:
+            if old_player.id == position:
+                break
         np = [p for p in self.players if p.id != position]
         if len(self.players) > len(np):
             self.players = np
             # self.freespawnpoints.append(position)
+        return old_player
 
     def plant_bomb(self, player, fuse_time):
         bombs = [b for b in self.items if isinstance(b, Bomb) and b.player is player and b.state == "ticking"]
