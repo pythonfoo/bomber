@@ -281,21 +281,21 @@ class Player:
         msg_type = msg.pop("type")
         try:
             handler = getattr(self, "do_{}".format(msg_type))
+            ret = handler(**msg)
+            if ret:
+                if isinstance(ret, tuple) and len(ret) == 2:
+                    self.client.inform(* ret)
+            else:
+                self.client.inform("ACK", ret)
         except AttributeError:
             self.client.inform("ERR",
                 "The function ({}) you are calling is not available".format(msg_type))
-        ret = handler(**msg)
-        if ret:
-            if isinstance(ret, tuple) and len(ret) == 2:
-                self.client.inform(* ret)
-        else:
-            self.client.inform("ACK", ret)
 
     def do_whoami(self, **kwargs):
-        return ("OK", self.whoami_data)
+        return ("WHOAMI", self.whoami_data)
 
     def do_map(self, **kwargs):
-        return("OK", "\n".join(
+        return("MAP", "\n".join(
             "".join(e.char for e in line) for line in self.map._map),)
 
     def do_move(self, direction, distance=1., **kwargs):
@@ -306,7 +306,7 @@ class Player:
         self.moving = distance * 10  # TODO, don't use constant
 
     def do_bomb(self, **kwargs):
-        self.map.plant_bomb(self)
+        self.map.plant_bomb(self, fuse_time=kwargs.get("fuse_time", 5))
 
     def update(self, dt):
         if not self.moving > 0:
@@ -507,13 +507,13 @@ class Map(ui.View):
             self.players = np
             # self.freespawnpoints.append(position)
 
-    def plant_bomb(self, player):
+    def plant_bomb(self, player, fuse_time):
         bombs = [b for b in self.items if isinstance(b, Bomb) and b.player is player and b.state == "ticking"]
         if len(bombs) >= player.bombamount:
             return False
         self.items.append(Bomb(
             player=player,
-            fuse_time=5,
+            fuse_time=fuse_time,
             position=player.position_int,
         ))
 

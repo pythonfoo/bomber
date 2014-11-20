@@ -20,8 +20,8 @@ class ClientStub:
         if self.state == "pending" and msg["type"] == "connect":
             self.position = self.level.player_register(self, msg["username"])
             self.state = "connected"
-
-        self.on_message(msg)
+        else:
+            self.on_message(msg)
 
     def bye(self):
         try:
