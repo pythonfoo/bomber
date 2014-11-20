@@ -91,7 +91,7 @@ class Bomb(MapObject):
         self.color = (10, 10, 10)
         self.explosion_radius = player.explosion_radius
         self.hidden = False
-        self.destoyed_walls = []
+        self.destroyed_walls = []
         self.fire_trails = []
 
     @property
@@ -125,7 +125,8 @@ class Bomb(MapObject):
             self.hide()
             for fire_trail in self.fire_trails:
                 fire_trail.hide()
-            for wall in self.destoyed_walls:
+            self.player.points += len([w for w in self.destroyed_walls if not w.hidden])
+            for wall in self.destroyed_walls:
                 wall.hide()
 
     def deploy_fire_trails(self):
@@ -141,7 +142,7 @@ class Bomb(MapObject):
                     tile = self.player.map._map[_y][_x]
                     if isinstance(tile, Wall) and not tile.hidden:
                         if tile.destructable:
-                            self.destoyed_walls.append(tile)
+                            self.destroyed_walls.append(tile)
                         break
                 except IndexError:
                     pass
@@ -233,6 +234,7 @@ class Player:
         self.direction = "w"        # North
         self.id = id
         self.map = map
+        self.points = 0
         client.on_message.connect(self.handle_msg)
 
         self.client.inform("OK", self.whoami_data)
@@ -486,7 +488,7 @@ class Map(ui.View):
         except StopIteration as e:
             return False
 
-        self.player_unregister(position)
+        old_player = self.player_unregister(position)
         player = Player(
             position=self.spawnpoints[position],
             client=client,

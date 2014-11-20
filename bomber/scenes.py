@@ -33,9 +33,14 @@ class MapScene(ui.Scene):
             self.label[id] = ui.label.Label(ui.Rect(*id_to_frame[id]), "foo %s" % id)
             self.add_child(self.label[id])
 
+    def update(self, dt):
+        for player in self.user.values():
+            self.label[player.id].text = "{} {} {}".format(player.id, player.name, player.points)
+        super().update(dt)
+
     def update_player(self, player):
         if player.name not in self.user:
             pass
         self.user[player.name] = player
-        self.label[player.id].text = "{} {}".format(player.id, player.name)
+        self.label[player.id].text = "{} {} {}".format(player.id, player.name, player.points)
         self.label[player.id].background_color = player.color
