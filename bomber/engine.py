@@ -302,8 +302,7 @@ class Player:
 
     def handle_msg(self, msg):
         if not self.alive:
-            self.client.inform("ERR",
-                "you are dead")
+            self.client.inform("ERR", "you are dead")
             return
         msg_type = msg.pop("type")
         try:
