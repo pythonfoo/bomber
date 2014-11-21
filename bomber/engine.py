@@ -339,6 +339,11 @@ class Player:
             (b.position_int, b.update_timer, b.state,) for b in self.map.items if isinstance(b, Bomb)
         ])
 
+    def do_what_foes(self, **kwargs):
+        return ("WHAT_FOES", [
+            (p.position_int, p.direction, p.id, p.name) for p in self.map.players
+        ])
+
     def update(self, dt):
         if not self.moving > 0 or not self.alive:
             return
