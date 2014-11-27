@@ -541,8 +541,9 @@ class Map(ui.View):
 
     def player_unregister(self, position):
         old_player = None
-        for old_player in self.players:
-            if old_player.id == position:
+        for player in self.players:
+            if player.id == position:
+                old_player = player
                 break
         np = [p for p in self.players if p.id != position]
         if len(self.players) > len(np):
