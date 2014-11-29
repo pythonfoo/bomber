@@ -2,6 +2,7 @@ import re
 import random
 import pygameui as ui
 from itertools import chain
+# from decorator import decorator
 import asyncio
 
 TILE_WIDTH = 10
@@ -209,9 +210,20 @@ class IndestructableWall(Wall):
 COLLIDING_OBJECTS = (IndestructableWall, DestructableWall, Bomb)
 
 
+# @decorator
+def rest_call(fn):
+    def foo(self, *args, **kw):
+        ret = fn(*args, **kw)
+        if ret:
+            self.client.inform(*ret)
+        else:
+            self.client.inform(("ACK", None))
+    return foo
+
+
 class Player:
 
-    def __init__(self, position, client, name="Hans", color=None, password="", id=None, map=None):
+    def __init__(self, position, client, name="Hans", color=None, password="", id=None, map=None, async=False):
         x, y = position
         self.__x = x
         self.__y = y
@@ -220,6 +232,7 @@ class Player:
         hashpassword = lambda x: x
         self.name = name
         self.client = client
+        self.async = async
         self.color = {
             "1": (255, 0, 0),       # red
             "2": (0, 0, 255),       # blue
@@ -309,20 +322,10 @@ class Player:
             handler = getattr(self, "do_{}".format(msg_type))
             ret = handler(**msg)
             if ret:
-                if isinstance(ret, tuple) and len(ret) == 2:
-                    self.client.inform(* ret)
-            else:
-                self.client.inform("ACK", ret)
+                self.client.inform(* ret)
         except AttributeError:
             self.client.inform("ERR",
                 "The function ({}) you are calling is not available".format(msg_type))
-
-    def do_whoami(self, **kwargs):
-        return ("WHOAMI", self.whoami_data)
-
-    def do_map(self, **kwargs):
-        return("MAP", "\n".join(
-            "".join(e.char for e in line) for line in self.map._map),)
 
     def do_move(self, direction, distance=1., **kwargs):
         assert direction in "wasd"
@@ -330,15 +333,31 @@ class Player:
 
         self.direction = direction
         self.moving = distance * 10  # TODO, don't use constant
+        return ("MOVE", self.id, self.position, direction, distance)
 
     def do_bomb(self, **kwargs):
-        self.map.plant_bomb(self, fuse_time=kwargs.get("fuse_time", 5))
+        fuse_time = kwargs.get("fuse_time", 5)
+        self.map.plant_bomb(self, fuse_time=fuse_time)
+        return ("BOMB", self.id, self.position, fuse_time)
 
+    # REST packets, answer should only go to sender
+
+    @rest_call
+    def do_whoami(self, **kwargs):
+        return ("WHOAMI", self.whoami_data)
+
+    @rest_call
+    def do_map(self, **kwargs):
+        return("MAP", "\n".join(
+            "".join(e.char for e in line) for line in self.map._map),)
+
+    @rest_call
     def do_what_bombs(self, **kwargs):
         return ("WHAT_BOMBS", [
             (b.position_int, b.update_timer, b.state,) for b in self.map.items if isinstance(b, Bomb)
         ])
 
+    @rest_call
     def do_what_foes(self, **kwargs):
         return ("WHAT_FOES", [
             (p.position_int, p.direction, p.id, p.name) for p in self.map.players
@@ -514,7 +533,7 @@ class Map(ui.View):
         elif code.lower() == "b":
             self.players[0].do_bomb()
 
-    def player_register(self, client, username, password="", **kw):
+    def player_register(self, client, username, password="",  async=False, **kw):
         try:
             if username in self.users:
                 position = self.users[username]
@@ -533,6 +552,7 @@ class Map(ui.View):
             map=self,
             name=username,
             password=password,
+            async=async,
         )
         if old_player:
             player.points = old_player.points
