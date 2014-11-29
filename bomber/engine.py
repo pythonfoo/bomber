@@ -2,7 +2,6 @@ import re
 import random
 import pygameui as ui
 from itertools import chain
-# from decorator import decorator
 import asyncio
 
 TILE_WIDTH = 10
@@ -210,10 +209,9 @@ class IndestructableWall(Wall):
 COLLIDING_OBJECTS = (IndestructableWall, DestructableWall, Bomb)
 
 
-# @decorator
 def rest_call(fn):
     def foo(self, *args, **kw):
-        ret = fn(*args, **kw)
+        ret = fn(self, *args, **kw)
         if ret:
             self.client.inform(*ret)
         else:
@@ -257,6 +255,7 @@ class Player:
         client.on_message.connect(self.handle_msg)
 
         self.client.inform("OK", self.whoami_data)
+        self._setup_async_inform_function()
 
     @property
     def position_int(self):
@@ -296,6 +295,20 @@ class Player:
         elif yf < yi:
             return "s"
 
+    def inform_async(self, msg_type, data):
+        self.client.inform(msg_type, data)
+
+    def rest_inform(self, msg_type, data):
+        accepted_msgtypes = {
+            "BOMB", "MOVE"
+        }
+        if data[0] == self.id and msg_type in accepted_msgtypes:
+            self.client.inform(msg_type, data)
+
+    def _setup_async_inform_function(self):
+        if not self.async:
+            self.inform_async = self.rest_inform
+
     def die(self, hard=False):
         print("die {}, tonight you dine in hell".format(self.name))
         loop = asyncio.get_event_loop()
@@ -320,12 +333,16 @@ class Player:
         msg_type = msg.pop("type")
         try:
             handler = getattr(self, "do_{}".format(msg_type))
-            ret = handler(**msg)
-            if ret:
-                self.client.inform(* ret)
         except AttributeError:
             self.client.inform("ERR",
                 "The function ({}) you are calling is not available".format(msg_type))
+        ret = handler(**msg)
+
+        if ret:
+            msg_type, *rest = ret
+            rest.insert(0, self.id)
+            self.map.inform_all(msg_type, rest)
+            # self.client.inform(* ret)
 
     def do_move(self, direction, distance=1., **kwargs):
         assert direction in "wasd"
@@ -333,12 +350,12 @@ class Player:
 
         self.direction = direction
         self.moving = distance * 10  # TODO, don't use constant
-        return ("MOVE", self.id, self.position, direction, distance)
+        return ("MOVE", self.id, self.position_int, direction, distance)
 
     def do_bomb(self, **kwargs):
         fuse_time = kwargs.get("fuse_time", 5)
         self.map.plant_bomb(self, fuse_time=fuse_time)
-        return ("BOMB", self.id, self.position, fuse_time)
+        return ("BOMB", self.id, self.position_int, fuse_time)
 
     # REST packets, answer should only go to sender
 
@@ -573,6 +590,10 @@ class Map(ui.View):
             self.players = np
             # self.freespawnpoints.append(position)
         return old_player
+
+    def inform_all(self, msg_type, msg):
+        for player in self.players:
+            player.inform_async(msg_type, msg)
 
     def plant_bomb(self, player, fuse_time):
         bombs = [b for b in self.items if isinstance(b, Bomb) and b.player is player and b.state == "ticking"]
