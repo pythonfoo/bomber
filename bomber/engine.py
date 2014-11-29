@@ -230,7 +230,7 @@ class Player:
             "7": (0x80, 0, 0x80),   # purple
             "8": (255, 255, 0),     # yellow
         }[color]
-        self.password = hashpassword(password)
+        self.password = password
         self.speed = 100.
         self.bombamount = 10
         self.explosion_radius = 10
@@ -514,7 +514,7 @@ class Map(ui.View):
         elif code.lower() == "b":
             self.players[0].do_bomb()
 
-    def player_register(self, client, username):
+    def player_register(self, client, username, password="", **kw):
         try:
             if username in self.users:
                 position = self.users[username]
@@ -524,7 +524,7 @@ class Map(ui.View):
         except StopIteration as e:
             return False
 
-        old_player = self.player_unregister(position)
+        old_player = self.player_unregister(position, password)
         player = Player(
             position=self.spawnpoints[position],
             client=client,
@@ -532,6 +532,7 @@ class Map(ui.View):
             id=position,
             map=self,
             name=username,
+            password=password,
         )
         if old_player:
             player.points = old_player.points
@@ -539,12 +540,14 @@ class Map(ui.View):
         self.on_update_player(player)
         return position
 
-    def player_unregister(self, position):
+    def player_unregister(self, position, password):
         old_player = None
         for player in self.players:
             if player.id == position:
                 old_player = player
                 break
+        if old_player:
+            assert old_player.password == password
         np = [p for p in self.players if p.id != position]
         if len(self.players) > len(np):
             self.players = np

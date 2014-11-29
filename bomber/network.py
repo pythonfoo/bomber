@@ -18,7 +18,8 @@ class ClientStub:
 
     def handle_msg(self, msg):
         if self.state == "pending" and msg["type"] == "connect":
-            self.position = self.level.player_register(self, msg["username"])
+            # print(repr(msg))
+            self.position = self.level.player_register(self, **msg)
             self.state = "connected"
         else:
             self.on_message(msg)
