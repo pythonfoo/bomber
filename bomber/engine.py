@@ -380,6 +380,10 @@ class Player:
             (p.position_int, p.direction, p.id, p.name) for p in self.map.players
         ])
 
+    @rest_call
+    def do_points(self, **kwargs):
+        return ("POINTS", [(p.id, p.name, p.points) for p in self.map.players])
+
     def update(self, dt):
         if not self.moving > 0 or not self.alive:
             return
