@@ -55,6 +55,8 @@ class MapObject:
 class FireTrail(MapObject):
 
     def __init__(self, bomb, start, end):
+        self.start = start
+        self.end = end
         x, y = start
         _x, _y = end
 
@@ -113,11 +115,26 @@ class Bomb(MapObject):
             self._state = value
             self.on_new_state(value)
 
+    def bomb_info(self, bomb):
+        # for clients it is not a difference if the bomb is exploding or burning
+        # since the exploding state is just present for 0.2 seconds it will probably produce bugs
+        # if the client doesn't know or care about it.
+
+        default_info = (b.position_int, b.update_timer, b.state,)
+        if b.state == "exploding":
+            return (b.position_int, b.update_timer + 1.5, "burning",) + (self.fire_trails)
+        elif b.state == "burning":
+            return default_info + ([f.end for f in self.fire_trails],)
+        elif b.state == "hiding":
+            return default_info + ([w.position_int for w in self.destroyed_walls],)
+        return default_info + (None,)
+
     def on_new_state(self, state):
         if state == "exploding":
             self.color = (255, 255, 230)
             self.update_timer = self.exploding_time
             self.deploy_fire_trails()
+            self.player.map.inform_async(self.bomb_info())
         elif state == "burning":
             self.color = (255, 55, 10)
             self.update_timer = self.burn_time
@@ -128,6 +145,7 @@ class Bomb(MapObject):
             self.player.points += len([w for w in self.destroyed_walls if not w.hidden])
             for wall in self.destroyed_walls:
                 wall.hide()
+            self.player.map.inform_async(self.bomb_info())
 
     def deploy_fire_trails(self):
         for direction in "wasd":
@@ -354,8 +372,8 @@ class Player:
 
     def do_bomb(self, **kwargs):
         fuse_time = kwargs.get("fuse_time", 5)
-        self.map.plant_bomb(self, fuse_time=fuse_time)
-        return ("BOMB", self.id, self.position_int, fuse_time)
+        bomb = self.map.plant_bomb(self, fuse_time=fuse_time)
+        return ("BOMB", self._bomb_info(bomb))
 
     # REST packets, answer should only go to sender
 
@@ -371,7 +389,7 @@ class Player:
     @rest_call
     def do_what_bombs(self, **kwargs):
         return ("WHAT_BOMBS", [
-            (b.position_int, b.update_timer, b.state,) for b in self.map.items if isinstance(b, Bomb)
+            b.bomb_info() for b in self.map.items if isinstance(b, Bomb)
         ])
 
     @rest_call
