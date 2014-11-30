@@ -350,7 +350,7 @@ class Player:
 
         self.direction = direction
         self.moving = distance * 10  # TODO, don't use constant
-        return ("MOVE", self.id, self.position_int, direction, distance)
+        return ("MOVE", self.position_int, direction, distance)
 
     def do_bomb(self, **kwargs):
         fuse_time = kwargs.get("fuse_time", 5)
