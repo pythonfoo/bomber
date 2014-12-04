@@ -96,7 +96,7 @@ class Server:
             except Exception as e:
                 error = 'ERROR: {}'.format(e)
                 print(error)
-                self.send_to_client(peername, error)
+                self.send_to_client(peername, ("ERR", error))
                 new_client.writer.write_eof()
                 new_client.bye()
                 del self.clients[peername]

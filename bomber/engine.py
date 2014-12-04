@@ -115,17 +115,17 @@ class Bomb(MapObject):
             self._state = value
             self.on_new_state(value)
 
-    def bomb_info(self, bomb):
+    def bomb_info(self):
         # for clients it is not a difference if the bomb is exploding or burning
         # since the exploding state is just present for 0.2 seconds it will probably produce bugs
         # if the client doesn't know or care about it.
 
-        default_info = (b.position_int, b.update_timer, b.state,)
-        if b.state == "exploding":
-            return (b.position_int, b.update_timer + 1.5, "burning",) + (self.fire_trails)
-        elif b.state == "burning":
+        default_info = (self.position_int, self.update_timer, self.state,)
+        if self.state == "exploding":
+            return (self.position_int, self.update_timer + 1.5, "burning",) + ([f.end for f in self.fire_trails],)
+        elif self.state == "burning":
             return default_info + ([f.end for f in self.fire_trails],)
-        elif b.state == "hiding":
+        elif self.state == "hiding":
             return default_info + ([w.position_int for w in self.destroyed_walls],)
         return default_info + (None,)
 
@@ -134,7 +134,7 @@ class Bomb(MapObject):
             self.color = (255, 255, 230)
             self.update_timer = self.exploding_time
             self.deploy_fire_trails()
-            self.player.map.inform_async(self.bomb_info())
+            self.player.map.inform_all("BOMB", self.bomb_info())
         elif state == "burning":
             self.color = (255, 55, 10)
             self.update_timer = self.burn_time
@@ -145,7 +145,7 @@ class Bomb(MapObject):
             self.player.points += len([w for w in self.destroyed_walls if not w.hidden])
             for wall in self.destroyed_walls:
                 wall.hide()
-            self.player.map.inform_async(self.bomb_info())
+            self.player.map.inform_all("BOMB", self.bomb_info())
 
     def deploy_fire_trails(self):
         for direction in "wasd":
@@ -358,8 +358,7 @@ class Player:
 
         if ret:
             msg_type, *rest = ret
-            rest.insert(0, self.id)
-            self.map.inform_all(msg_type, rest)
+            self.map.inform_all(msg_type, rest, from_id=self.id)
             # self.client.inform(* ret)
 
     def do_move(self, direction, distance=1., **kwargs):
@@ -373,7 +372,7 @@ class Player:
     def do_bomb(self, **kwargs):
         fuse_time = kwargs.get("fuse_time", 5)
         bomb = self.map.plant_bomb(self, fuse_time=fuse_time)
-        return ("BOMB", self._bomb_info(bomb))
+        return ("BOMB", bomb.bomb_info())
 
     # REST packets, answer should only go to sender
 
@@ -613,7 +612,9 @@ class Map(ui.View):
             # self.freespawnpoints.append(position)
         return old_player
 
-    def inform_all(self, msg_type, msg):
+    def inform_all(self, msg_type, msg, from_id="0"):
+        msg = list(msg)
+        msg.insert(0, from_id)
         for player in self.players:
             player.inform_async(msg_type, msg)
 
@@ -621,11 +622,13 @@ class Map(ui.View):
         bombs = [b for b in self.items if isinstance(b, Bomb) and b.player is player and b.state == "ticking"]
         if len(bombs) >= player.bombamount:
             return False
-        self.items.append(Bomb(
+        bomb = Bomb(
             player=player,
             fuse_time=fuse_time,
             position=player.position_int,
-        ))
+        )
+        self.items.append(bomb)
+        return bomb
 
     def draw(self):
         if not super().draw():
