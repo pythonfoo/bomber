@@ -507,6 +507,9 @@ class Player:
         self.frame.top = self._top = _top
         self.frame.left = self._left = _left
 
+        if self.moving == 0:
+            self.map.inform_all("PLAYER_STOPPED", (self.position_int,), from_id=self.id)
+
 
 class Map(ui.View):
 
