@@ -1,6 +1,7 @@
 import asyncio
 import msgpack
 import pygameui as ui
+import traceback
 
 
 class ClientStub:
@@ -89,6 +90,7 @@ class Server:
                     new_client.handle_msg(msg)
             except ConnectionResetError as e:
                 print('ERROR: {}'.format(e))
+                traceback.print_exc()
                 new_client.bye()
                 del self.clients[peername]
                 # self.level.player_unregister(position)
@@ -96,6 +98,7 @@ class Server:
             except Exception as e:
                 error = 'ERROR: {}'.format(e)
                 print(error)
+                traceback.print_exc()
                 self.send_to_client(peername, ("ERR", error))
                 new_client.writer.write_eof()
                 new_client.bye()

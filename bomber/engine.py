@@ -372,7 +372,8 @@ class Player:
     def do_bomb(self, **kwargs):
         fuse_time = kwargs.get("fuse_time", 5)
         bomb = self.map.plant_bomb(self, fuse_time=fuse_time)
-        return ("BOMB", ) + bomb.bomb_info()
+        if bomb:
+            return ("BOMB", ) + bomb.bomb_info()
 
     # REST packets, answer should only go to sender
 
