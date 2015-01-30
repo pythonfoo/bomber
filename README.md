@@ -16,6 +16,13 @@ pip3 install https://github.com/hwmrocker/pygameui/archive/master.zip
 pip3 install docopt msgpack-python
 ```
 
+### Arch users should install at least
+
+```
+sudo pacman -S hgsvn
+sudo pacman -S python-pip
+```
+
 Via vagrant
 -----------
 
